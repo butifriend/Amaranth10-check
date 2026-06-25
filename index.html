@@ -210,19 +210,19 @@
 
         <div class="charts-grid">
             <div class="card">
-                <h3>오늘 누적 상태 및 성공율</h3>
+                <h3>오늘 누적 상태 및 건수</h3>
                 <div style="height: 200px; position: relative;">
                     <canvas id="todayAccumChart"></canvas>
                 </div>
             </div>
             <div class="card">
-                <h3>이번주 누적 상태 및 성공율</h3>
+                <h3>이번주 누적 상태 및 건수</h3>
                 <div style="height: 200px; position: relative;">
                     <canvas id="weekChart"></canvas>
                 </div>
             </div>
             <div class="card">
-                <h3>이번달 누적 상태 및 성공율</h3>
+                <h3>이번달 누적 상태 및 건수</h3>
                 <div style="height: 200px; position: relative;">
                     <canvas id="monthChart"></canvas>
                 </div>
@@ -259,7 +259,8 @@
 
     let charts = {};
 
-    const baseChartOptions = (centerText) => ({
+    // 📊 건수 정보 가시성 확대를 위한 툴팁 기본 서식 지정
+    const baseChartOptions = (bottomText) => ({
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
@@ -270,14 +271,15 @@
             },
             title: {
                 display: true,
-                text: centerText,
+                text: bottomText,
                 position: 'bottom',
-                font: { size: 14, weight: 'bold' }
+                font: { size: 13, weight: 'bold' },
+                padding: { top: 15 }
             }
         }
     });
 
-    function updateDoughnutChart(chartId, ctxId, labels, data, successRateText) {
+    function updateDoughnutChart(chartId, ctxId, labels, data, bottomText) {
         if (charts[chartId]) {
             charts[chartId].destroy();
         }
@@ -291,7 +293,7 @@
                     backgroundColor: ['rgb(40, 130, 255)', 'rgb(185, 50, 255)'] 
                 }]
             },
-            options: baseChartOptions(successRateText)
+            options: baseChartOptions(bottomText)
         });
     }
 
@@ -305,7 +307,6 @@
         }).filter(row => row.length > 0 && row[0] !== "");
     }
 
-    // 🛠️ 시간대 왜곡을 완벽히 방지하는 날짜 파싱 (년, 월, 일 정수 추출)
     function parseDateParts(dateStr) {
         const parts = dateStr.split('-');
         if (parts.length === 3) {
@@ -315,7 +316,6 @@
                 day: parseInt(parts[2], 10)
             };
         }
-        // 슬래시 형태 대응
         const partsSlash = dateStr.split('/');
         if (partsSlash.length === 3) {
             return {
@@ -327,11 +327,9 @@
         return null;
     }
 
-    // 주차 계산 유틸리티 (일요일~토요일 기준 동일 주 판단)
     function getStartOfWeekDate(year, month, day) {
-        // 일시적 로컬 데이트 생성
         const d = new Date(year, month - 1, day);
-        const dayOfWeek = d.getDay(); // 0: 일요일, 6: 토요일
+        const dayOfWeek = d.getDay(); 
         d.setDate(d.getDate() - dayOfWeek);
         return {
             year: d.getFullYear(),
@@ -341,16 +339,4 @@
     }
 
     async function fetchDashboardData() {
-        document.getElementById('log-tbody').innerHTML = `<tr><td colspan="6" class="loading"><i class="fa-solid fa-spinner fa-spin"></i> 구글 시트 데이터를 동기화하는 중입니다...</td></tr>`;
-        
-        try {
-            const cacheBuster = "&t=" + new Date().getTime();
-            const response = await fetch(SPREADSHEET_CSV_URL + cacheBuster);
-            
-            if (!response.ok) throw new Error("네트워크 응답 오류");
-            
-            const csvText = await response.text();
-            const rawRows = parseCSV(csvText);
-            
-            if (rawRows.length <= 1) {
-                document.getElementById('log-tbody').innerHTML = `<tr><td colspan="6" class="loading" style="color:orange;"><i class="fa-
+        document.getElementById('log-tbody').innerHTML = `<tr><td colspan="6"
