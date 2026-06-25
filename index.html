@@ -12,8 +12,8 @@
             --bg-color: #ffffff;
             --card-bg: #f8f9fa;
             --accent-color: #007bff;
-            --success-color: rgb(40, 130, 255); /* 변경 요청 정상 컬러 */
-            --danger-color: rgb(185, 50, 255);  /* 변경 요청 오류 컬러 */
+            --success-color: rgb(40, 130, 255); 
+            --danger-color: rgb(185, 50, 255);  
             --text-color: #333333;
             --text-muted: #6c757d;
             --border-color: #dee2e6;
@@ -51,7 +51,6 @@
             margin-bottom: 30px;
         }
 
-        /* 도넛 차트 3개가 나란히 배치되는 3열 그리드 구조 */
         .charts-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -133,11 +132,9 @@
 <div class="container">
     <header>
         <h1><span>Amaranth10</span> 이용가이드 대시보드</h1>
-        <!-- 지시사항: '로컬 테스트 모드' 영역 완전 제거 -->
     </header>
 
     <div id="dashboard-view">
-        <!-- 상단 동적 지표 카드 블록 -->
         <div class="metrics-grid">
             <div class="card" style="border-top: 4px solid var(--success-color);">
                 <h3>최근 점검 상태</h3>
@@ -161,7 +158,6 @@
             </div>
         </div>
 
-        <!-- 중앙 도넛 차트 3열 배치 영역 -->
         <div class="charts-grid">
             <div class="card">
                 <h3>오늘 누적 상태 및 성공율</h3>
@@ -183,7 +179,6 @@
             </div>
         </div>
 
-        <!-- 하단 실시간 점검 로그 리스트 -->
         <div class="dashboard-grid">
             <div class="card">
                 <h3>오늘 기준 점검 로그 리스트 (최신순)</h3>
@@ -210,13 +205,10 @@
 </div>
 
 <script>
-    // ⚠️ [필수 선행 작업] 구글 스프레드시트 파일 -> 메뉴의 '파일' -> '공유' -> '웹에 게시' 클릭
-    // ⚠️ 링크 형식을 전체 문서 기준 '쉼표로 구분된 값(.csv)'으로 설정 후 게시 버튼을 누르고 아래 URL에 할당하세요.
     const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSP5-vHXke2MwMtOgCeXv8dZTCPIBU75OwW8bTnOBuOKcdAbbyNUMA1L__my6ch09rx5dezRUFmW9YS/pub?gid=0&single=true&output=csv";
 
     let charts = {};
 
-    // 공통 차트 가시성 옵션
     const baseChartOptions = (centerText) => ({
         responsive: true,
         maintainAspectRatio: false,
@@ -235,7 +227,6 @@
         }
     });
 
-    // 도넛 차트 생성 및 갱신 전용 핸들러
     function updateDoughnutChart(chartId, ctxId, labels, data, successRateText) {
         if (charts[chartId]) {
             charts[chartId].destroy();
@@ -247,99 +238,84 @@
                 labels: labels,
                 datasets: [{
                     data: data,
-                    backgroundColor: ['rgb(40, 130, 255)', 'rgb(185, 50, 255)'] // 지정 RGB 반영
+                    backgroundColor: ['rgb(40, 130, 255)', 'rgb(185, 50, 255)'] 
                 }]
             },
             options: baseChartOptions(successRateText)
         });
     }
 
-    // CSV 파싱 엔진 함수
     function parseCSV(text) {
         const lines = text.split('\n');
         return lines.map(line => {
-            // 따옴표 내부의 콤마를 보호하며 분할 처리
             const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
             return matches.map(val => val.replace(/^"|"$/g, '').trim());
         }).filter(row => row.length > 0 && row[0] !== "");
     }
 
-    // 날짜 연산을 위한 유틸리티 함수 그룹
-    function getParsedDate(dateStr) {
-        return new Date(dateStr.replace(/-/g, '/'));
+    // 날짜 객체 생성 시 시/분/초를 00:00:00으로 강제 초기화하여 비교 오류 전면 차단
+    function getZeroTimeDate(dateStr) {
+        const d = new Date(dateStr.replace(/-/g, '/'));
+        d.setHours(0, 0, 0, 0);
+        return d;
     }
 
     function isSameDay(d1, d2) {
         return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
     }
 
+    // 일요일 시작 기준 동일 주차 여부 판별 함수 개선
     function isSameWeek(d1, d2) {
-        const oneDay = 24 * 60 * 60 * 1000;
-        const diff = Math.abs(d1 - d2);
-        if (diff > 7 * oneDay) return false;
-        // 같은 주차 내에 있는 기한 가늠 (일요일 주차 기준 단순 비교 보완)
-        const d1Week = Math.floor(d1.getTime() / (7 * oneDay));
-        const d2Week = Math.floor(d2.getTime() / (7 * oneDay));
-        return d1.getMonth() === d2.getMonth(); 
+        const target = new Date(d1.getTime());
+        const base = new Date(d2.getTime());
+        
+        target.setDate(target.getDate() - target.getDay());
+        base.setDate(base.getDate() - base.getDay());
+        
+        return target.getTime() === base.getTime();
     }
 
-    // 실시간 시트 데이터 스트리밍 연동 로직
     async function fetchDashboardData() {
-        if (SPREADSHEET_CSV_URL === "YOUR_GOOGLE_SHEET_CSV_URL_HERE") {
-            document.getElementById('log-tbody').innerHTML = `<tr><td colspan="6" class="loading" style="color:red;"><i class="fa-solid fa-triangle-exclamation"></i> SPREADSHEET_CSV_URL 변수에 구글 웹 게시 주소를 입력해주세요.</td></tr>`;
-            return;
-        }
-
         try {
             const response = await fetch(SPREADSHEET_CSV_URL);
             const csvText = await response.text();
             const rawRows = parseCSV(csvText);
             
-            // 헤더 제거 (첫 번째 행 제외)
-            const headers = rawRows[0];
             const rows = rawRows.slice(1);
 
-            // 오늘 날짜 셋업 (시스템 연동 기준값 보정)
+            // 기준 시간 객체의 시/분/초를 날려 연산의 정확도 확보
             const today = new Date();
+            today.setHours(0,0,0,0);
 
-            // 집계용 변수 인스턴스 초기화
             let todayNormal = 0, todayError = 0;
             let weekNormal = 0, weekError = 0;
             let monthNormal = 0, monthError = 0;
-            let lastStatus = "정상";
+            let lastStatus = "미정";
             let tableHtml = "";
 
-            // 구글 시트 구조 매핑: [0]날짜, [1]시간, [2]접속방법, [3]상태, [4]점검내용, [5]성공율
-            rows.forEach((row, index) => {
-                if(row.length < 4) return;
+            // 가장 마지막 행이 최신 데이터이므로 역순(최신순) 처리 구조 구축
+            const totalRows = rows.length;
+
+            for (let i = totalRows - 1; i >= 0; i--) {
+                const row = rows[i];
+                if(row.length < 4) continue;
 
                 const dateStr = row[0];
                 const statusStr = row[3];
                 const rateStr = row[5] || "100%";
                 const isNormal = (statusStr === "정상" || statusStr.includes("정상"));
 
-                const targetDate = getParsedDate(dateStr);
+                const targetDate = getZeroTimeDate(dateStr);
 
-                // 최신 데이터 1건의 점검 상태 추출
-                if (index === 0) {
+                // 핵심 수정: 루프의 첫 순서(배열의 가장 마지막 데이터)가 진짜 최신 데이터임
+                if (i === totalRows - 1) {
                     lastStatus = statusStr;
                 }
 
-                // 1. 당일(오늘) 누적 계산
+                // 1. 당일 누적
                 if (isSameDay(targetDate, today)) {
                     if (isNormal) todayNormal++; else todayError++;
-                }
-                // 2. 주간 누적 계산
-                if (isSameWeek(targetDate, today)) {
-                    if (isNormal) weekNormal++; else weekError++;
-                }
-                // 3. 월간 누적 계산
-                if (targetDate.getFullYear() === today.getFullYear() && targetDate.getMonth() === today.getMonth()) {
-                    if (isNormal) monthNormal++; else monthError++;
-                }
-
-                // 테이블 동적 드로우 구성 (오늘 날짜 데이터 위주로 마킹 처리)
-                if (isSameDay(targetDate, today)) {
+                    
                     const rowClass = isNormal ? "" : "style='background-color: #fdf2f2;'";
                     const statusClass = isNormal ? "class='status-normal'" : "class='status-error'";
                     tableHtml += `
@@ -353,15 +329,21 @@
                         </tr>
                     `;
                 }
-            });
+                // 2. 주간 누적
+                if (isSameWeek(targetDate, today)) {
+                    if (isNormal) weekNormal++; else weekError++;
+                }
+                // 3. 월간 누적
+                if (targetDate.getFullYear() === today.getFullYear() && targetDate.getMonth() === today.getMonth()) {
+                    if (isNormal) monthNormal++; else monthError++;
+                }
+            }
 
-            // 렌더링할 오늘 이력이 없을 경우의 예외 테이블 처리
             if (tableHtml === "") {
                 tableHtml = `<tr><td colspan="6" class="loading">오늘 기록된 점검 로그가 없습니다.</td></tr>`;
             }
             document.getElementById('log-tbody').innerHTML = tableHtml;
 
-            // 상단 대시보드 스코어 메타보드 수치 갱신 반영
             const todayTotal = todayNormal + todayError;
             const todayRate = todayTotal > 0 ? Math.round((todayNormal / todayTotal) * 100) : 0;
 
@@ -372,25 +354,22 @@
             document.getElementById('meta-error').innerText = `${todayError} 건`;
             document.getElementById('meta-rate').innerText = `${todayRate}%`;
 
-            // 각각의 성공율 산출식 대입
             const weekTotal = weekNormal + weekError;
             const weekRate = weekTotal > 0 ? Math.round((weekNormal / weekTotal) * 100) : 0;
 
             const monthTotal = monthNormal + monthError;
             const monthRate = monthTotal > 0 ? Math.round((monthNormal / monthTotal) * 100) : 0;
 
-            // 동적 차트 갱신 렌더링 호출
             updateDoughnutChart('today', 'todayAccumChart', ['정상', '오류'], [todayNormal, todayError], `오늘 성공율: ${todayRate}%`);
             updateDoughnutChart('week', 'weekChart', ['정상', '오류'], [weekNormal, weekError], `이번주 성공율: ${weekRate}%`);
             updateDoughnutChart('month', 'monthChart', ['정상', '오류'], [monthNormal, monthError], `이번달 성공율: ${monthRate}%`);
 
         } catch (error) {
             console.error("데이터 동기화 실패:", error);
-            document.getElementById('log-tbody').innerHTML = `<tr><td colspan="6" class="loading" style="color:red;"><i class="fa-solid fa-circle-xmark"></i> 시트 연동 중 에러가 발생했습니다. 개발자 콘솔을 확인하세요.</td></tr>`;
+            document.getElementById('log-tbody').innerHTML = `<tr><td colspan="6" class="loading" style="color:red;"><i class="fa-solid fa-circle-xmark"></i> 시트 연동 중 에러가 발생했습니다.</td></tr>`;
         }
     }
 
-    // 도큐먼트 로드 완료 시 구글 드라이브 시트 호출 시작
     window.addEventListener('DOMContentLoaded', fetchDashboardData);
 </script>
 </body>
